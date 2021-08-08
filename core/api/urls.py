@@ -1,8 +1,10 @@
-from core.api.views import TaskerAPIView
+from core.api.views import TaskResultsViewSet, TaskerAPIView
 from django.urls import include,path
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
+router.register(r"task-results", TaskResultsViewSet)
+
 
 urlpatterns = [
             path("", include(router.urls)),
