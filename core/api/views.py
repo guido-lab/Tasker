@@ -15,7 +15,7 @@ from helperScripts.helper_get_ip import GetIP
 
 class TaskerAPIView(APIView):
 
-    def get(self, request):
+    def post(self, request):
         task_name = request.data.get('task_name')
         request_params = request.data.get('params')
 
@@ -56,5 +56,5 @@ class TaskResultsViewSet(viewsets.ReadOnlyModelViewSet):
 	serializer_class = TaskResultsSerializer
 	__basic_fields = ('id', 'task', 'task_uuid', 'requester_ip')
 	filter_backends = [DjangoFilterBackend, OrderingFilter]
-	currentusertasksreport = __basic_fields
 	ordering_fields = __basic_fields
+	filter_fields = __basic_fields
