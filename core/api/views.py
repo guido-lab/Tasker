@@ -12,38 +12,44 @@ from rest_framework.response import Response
 from rest_framework import status
 from helperScripts.taskFunctions import Tasks
 from helperScripts.helper_get_ip import GetIP
+from threading import Thread
+
+
+class TaskerExec(Tasks):
+
+    def call_and_forget(self, request, queryset, task_uuid):
+        task_name = request.data.get('task_name')
+        request_params = request.data.get('params')
+        db_params = queryset.params
+        params = ()
+        
+        for model_param in db_params:
+            params += (request_params[model_param['name']],)
+        
+        result = getattr(Tasks, task_name)(*params)
+        requester_ip = GetIP.get_client_ip(request)
+        
+        TaskResults.objects.create(
+            task=queryset, 
+            task_uuid = task_uuid, 
+            requester_params = request_params, 
+            requester_ip = requester_ip,
+            result = result
+            )
+        return
+
 
 class TaskerAPIView(APIView):
 
     def post(self, request):
         task_name = request.data.get('task_name')
-        request_params = request.data.get('params')
 
-        if task_name and request_params:
-            class_name = 'Tasks'
+        if task_name:
             queryset = Task.objects.filter(name=task_name, deleted=False)
             if queryset.count() > 0:
-                queryset = queryset.first()
-                db_params = queryset.params
-                function_params = ''
-
-                for model_param in db_params:
-                    param_seperator = ', '
-                    if db_params.index(model_param) == len(db_params)-1:
-                        param_seperator = ''
-                    function_params += model_param['name'] + ' = ' + str(request_params[model_param['name']]) + param_seperator
-
-                eval_string = class_name + '.' + task_name + f"({function_params})"
-                result = eval(eval_string) #Calling the function
-                requester_ip = GetIP.get_client_ip(request)
                 task_uuid = uuid.uuid4()
-                
-                TaskResults.objects.create(task=queryset, 
-                                            task_uuid = task_uuid, 
-                                            requester_params = request_params, 
-                                            requester_ip = requester_ip,
-                                            result = result
-                                            )
+                Thread(target=TaskerExec.call_and_forget, args=(self, request, queryset.first(), task_uuid)).start()
+
                 return Response({"task_id": task_uuid}, status=status.HTTP_201_CREATED)
             else:
                 return Response({"error": "There is no task with the given name!"}, status=status.HTTP_400_BAD_REQUEST)
